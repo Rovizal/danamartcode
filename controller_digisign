@@ -1,0 +1,164 @@
+public function proses_daf()
+  {
+    $this->form_validation->set_rules('nama','Nama','required');
+    $this->form_validation->set_rules('alamat','Alamat','required');
+    $this->form_validation->set_rules('email','Email','required');
+
+    if ($this->form_validation->run() == false) {
+      echo json_encode(['error' => 'Maaf silahkan lengkapi data']);
+    } else {
+      $nama = $this->input->post('nama');
+      $email = $this->input->post('email');
+      $no_telpon = $this->input->post('no_telp');
+      $firs_num = substr($no_telpon,0,1);
+      $no_telp="";
+      if ($firs_num == '0') {
+        $no_telp = "+62".preg_replace('/^0/','', $no_telpon);
+      } else {
+        $no_telp = $no_telpon;
+      }
+      $no_npwp = $this->input->post('no_npwp');
+      $id_ktp = $this->input->post('id_ktp');
+      $alamat = $this->input->post('alamat');
+      $kecamatan = $this->input->post('kecamatan');
+      $kelurahan = $this->input->post('kelurahan');
+      $provinsi = $this->input->post('provinsi');
+      $kode_pos = $this->input->post('kode_pos');
+      $jenis_kelamin = $this->input->post('jenis_kelamin');
+      $kota = $this->input->post('kota');
+      $tanggal_lahir = $this->input->post('tanggal_lahir');
+      $tempat_lahir = $this->input->post('tempat_lahir');
+
+      // $foto_ktp = $_FILES['foto_ktp']['name'];
+      // $foto_npwp = $_FILES['foto_npwp']['name'];
+      // $ttd = $_FILES['ttd']['name'];
+
+      $encoded_data_cam = $this->input->post('image_from_web_cam');
+      $binary_data_cam = base64_decode($encoded_data_cam);
+
+
+
+      $file_name_cam = time().'.jpg';
+      
+      $post = array('JSONFile'=>
+        array(
+          'userid'=>'office@danamart.id',
+          'pwd'=>'1b2570d0e5319eee460fff8dbfdac9c1',
+          'alamat'=>$alamat,
+          'jenis_kelamin'=>$jenis_kelamin,
+          'kecamatan'=>$kecamatan,
+          'kelurahan'=>$kelurahan,
+          'kode-pos'=>$kode_pos,
+          'kota'=>$kota,
+          'nama'=>$nama,
+          'tlp'=>$no_telp,
+          'tgl_lahir'=>$tanggal_lahir,
+          'provinci'=>$provinsi,
+          'idktp'=>$id_ktp,
+          'tmp_lahir'=>$tempat_lahir,
+          'email'=>$email,
+          'npwp'=>$no_npwp
+        )
+        );
+
+        $fotoktp = fopen($_FILES["foto_ktp"]["tmp_name"],'r');
+        $ttd = fopen($_FILES["ttd"]["tmp_name"],'r') ;
+        $fotonpwp = fopen($_FILES["foto_npwp"]["tmp_name"],'r');
+        // $makecurl = makeCurlFile($binary_data_cam);
+        $uriBase = "https://api.tandatanganku.com/REG-MITRA.html";
+        $client = new GuzzleHttp\Client();
+        $response = $client->post($uriBase,[
+            'multipart' => [
+                [
+                    'name' => 'jsonfield',
+                    'contents' => json_encode($post)
+                ],
+                [
+                    'contents' => $fotoktp,
+                    'name' => 'fotoktp',
+                    'filename'=> $_FILES["foto_ktp"]["name"],
+                    'content-type'=> $_FILES["foto_ktp"]["type"]
+                ],
+                [
+                    'content-type' => 'image/jpeg',
+                    'contents' => $encoded_data_cam,
+                    'name' => 'fotodiri',
+                    'filename' => $file_name_cam,
+                ],
+                [
+                    'contents' => $ttd,
+                    'name' => 'ttd',
+                    'filename'=> $_FILES["ttd"]["name"],
+                    'content-type'=> $_FILES["ttd"]["type"]
+                ],
+                [
+                    'contents' => $fotonpwp,
+                    'name' => 'fotonpwp',
+                    'filename'=> $_FILES["foto_npwp"]["name"],
+                    'content-type'=> $_FILES["foto_ktp"]["type"]
+                ]
+            ],
+        ]);
+        $responses = $response->getBody()->getContents();
+
+
+
+       if ($responses) {
+          // save to server (beware of permissions)
+           $result = "";
+            $ket_error = "";
+            $decoded_response = json_decode($responses);
+            foreach ($decoded_response as $value) {
+              $result = $value->result;
+              $ket_error = $value->notif;
+            }
+
+            if ($result != '00') {
+              echo json_encode([
+                'error' => 'error',
+                'notif' => $ket_error
+              ]);
+            } else {
+                $result_cam = file_put_contents('./upload/webcam/'.$file_name_cam, $binary_data_cam );
+                if (!$result_cam) {
+                  die("Could not save image!  Check file permissions.");
+                }
+              else
+              {
+
+                $dir1 =  './upload/ktp/';
+                $dir2 =  './upload/npwp/';
+                $dir3 =  './upload/ttd/';
+                move_uploaded_file($_FILES['foto_ktp']['tmp_name'],$dir1. $_FILES["foto_ktp"]['name']);
+                move_uploaded_file($_FILES['ttd']['tmp_name'],$dir2. $_FILES["ttd"]['name']);
+                move_uploaded_file($_FILES['foto_npwp']['tmp_name'],$dir3. $_FILES["foto_npwp"]['name']);
+
+                $id_uniq = $this->input->post('id_unique');
+
+                $register_data = array(
+                  'id_data'=>$id_uniq,
+                  'nama'=>$nama,
+                  'alamat'=>$alamat,
+                  'no_telp'=>$no_telp,
+                  'jenis_kelamin'=>$jenis_kelamin,
+                  'foto_ktp'=>$foto_ktp,
+                  'foto_diri'=>$file_name_cam,
+                  'foto_npwp'=>$foto_npwp,
+                  'foto_ttd'=>$ttd,
+                  'id_ktp'=>$id_ktp,
+                  'kota'=>$kota,
+                  'kecamatan'=>$kecamatan,
+                  'kelurahan'=>$kelurahan,
+                );
+
+                $this->load->model('test_digisign');
+                $this->test_digisign->insert($register_data);
+                echo json_encode([
+                  'sukses' => $result,
+                  'notif' => $ket_error
+                ]);
+          }
+        }
+    }
+  }
+}
